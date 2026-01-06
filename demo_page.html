@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omni2Sound - Unified Video-Text-to-Audio Generation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+        }
+        audio {
+            height: 32px;
+            width: 100%;
+        }
+        .tab-pill {
+            transition: all 0.2s ease;
+        }
+        .tab-pill.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+        .tab-pill:not(.active):hover {
+            background-color: #f1f5f9;
+        }
+        video {
+            aspect-ratio: 16/9;
+            object-fit: cover;
+        }
+        .model-card {
+            position: relative;
+        }
+        .model-card video {
+            aspect-ratio: 16/9;
+            width: 100%;
+            object-fit: cover;
+        }
+        .ours-highlight {
+            background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 100%);
+            border-left: 3px solid #3b82f6;
+        }
+        .caption-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .caption-row:last-child {
+            border-bottom: none;
+        }
+        .section-image {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            height: auto;
+        }
+        .section-image.clickable {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .section-image.clickable:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        }
+        .content-section {
+            scroll-margin-top: 2rem;
+        }
+        /* Lightbox Modal */
+        .lightbox-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            animation: fadeIn 0.3s ease;
+        }
+        .lightbox-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .lightbox-content {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            animation: zoomIn 0.3s ease;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 40px;
+            color: white;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+            z-index: 10000;
+        }
+        .lightbox-close:hover {
+            color: #ccc;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes zoomIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-white text-gray-800">
+    <!-- Header -->
+    <header class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white py-20">
+        <div class="max-w-6xl mx-auto px-8 text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-4">Omni2Sound</h1>
+            <p class="text-xl md:text-2xl text-indigo-200 mb-6">Towards Unified Video-Text-to-Audio Generation</p>
+
+            <!-- Authors -->
+            <p class="text-sm md:text-base text-slate-300 mt-8 leading-relaxed">
+                Yusheng Dai<sup>2,3</sup>, Zehua Chen<sup>1,3†</sup>, Yuxuan Jiang<sup>1,3</sup>, Baolong Gao<sup>1,3</sup>,<br>
+                Qiuhong Ke<sup>2</sup>, Jun Zhu<sup>1,3†</sup>, Jianfei Cai<sup>2</sup>
+            </p>
+
+            <!-- Affiliations -->
+            <p class="text-xs md:text-sm text-slate-300 mt-4 leading-relaxed">
+                <sup>1</sup>Tsinghua University, Beijing, China &nbsp;&nbsp;
+                <sup>2</sup>Monash University, Melbourne, Australia &nbsp;&nbsp;
+                <sup>3</sup>Shengshu AI, Beijing, China
+            </p>
+
+            <!-- Links -->
+            <div class="flex flex-wrap justify-center gap-4 mt-8">
+                <a href="#" class="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all backdrop-blur-sm border border-white/20">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M15.6 5.3c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2m0-2c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zM4 7h6v2H4V7zm0 4h6v2H4v-2zm0 4h6v2H4v-2zM2 3v18h20V3H2zm18 16H4V5h16v14z"/>
+                    </svg>
+                    <span class="font-medium">arXiv</span>
+                </a>
+                <a href="#" class="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all backdrop-blur-sm border border-white/20">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+                    </svg>
+                    <span class="font-medium">GitHub</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Introduction Section -->
+    <section class="content-section py-16 bg-white">
+        <div class="mx-auto px-8" style="max-width: 90rem;">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-12 text-slate-900">Challenges: High-Quality Data Scarcity and Joint Training Competition</h2>
+            <div class="grid md:grid-cols-[1.3fr_1.0fr] gap-12 items-center">
+                <div class="order-2 md:order-1">
+                    <p class="text-base md:text-lg text-slate-700 leading-relaxed mb-6">
+                        Training a unified model for video-to-audio (V2A), text-to-audio (T2A), and joint video-text-to-audio (VT2A) generation offers significant flexibility but faces critical, underexplored challenges. In this paper, we identify two foundational problems:
+                    </p>
+                    <ol class="space-y-4 text-sm md:text-base text-slate-700 leading-relaxed list-decimal list-inside">
+                        <li class="pl-2">
+                            <strong>Data Scarcity and Semantic Conflict (Figure 1):</strong> The scarcity of high-quality captions with tight Audio-Visual-Text (A-V-T) alignment leads to severe semantic conflicts. Reliance on audio-only captions introduces ambiguity (e.g., confusing "fireworks" with "tennis hits"), leading to severe semantic conflict between video and text conditions. Conversely, native multimodal models suffer from visual bias, often hallucinating silent objects or ignoring off-screen sounds. These mismatches cause unstable convergence and degraded faithfulness.
+                        </li>
+                        <li class="pl-2">
+                            <strong>Cross-Task and Intra-Task Competition (Figure 3):</strong> Joint training triggers complex competitive dynamics. <strong>Cross-task competition</strong> manifests as an adverse performance trade-off between V2A and T2A due to modality heterogeneity, hindering joint optimization. <strong>Intra-task competition</strong> within VT2A creates modality bias: text bias compromises audio-visual synchronization, while video bias degrades faithfulness in off-screen scenarios like background music.
+                        </li>
+                    </ol>
+                </div>
+                <div class="order-1 md:order-2">
+                    <img src="src/challenge.png" alt="Challenges in unified audio generation" class="section-image clickable" onclick="openLightbox('src/challenge.png')">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SoundAtlas Section -->
+    <section class="content-section py-16 bg-gradient-to-br from-slate-50 to-blue-50">
+        <div class="mx-auto px-8" style="max-width: 90rem;">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-12 text-slate-900">SoundAtlas: Large-scale Human-Expert-Level Audio Captions with A-V-T Alignment</h2>
+
+
+
+            <div class="space-y-8 mb-8">
+                <div class="flex justify-center">
+                    <img src="src/pipeline.png" alt="SoundAtlas annotation pipeline" class="section-image clickable" onclick="openLightbox('src/pipeline.png')" style="width: 80%; max-width: 80%;">
+                </div>
+                <div>
+                    <p class="text-base md:text-lg text-slate-700 leading-relaxed">
+                        In this work, we introduce <strong>SoundAtlas</strong>, a large-scale dataset of 470k audio-caption pairs. It is the first to significantly outperform existing datasets in quality, even surpassing human-expert annotation quality. Our construction process relies on a novel multi-turn agentic annotation pipeline powered by Gemini-2.5 Pro and Qwen-2.5-VL (Figure 2). Specifically, we employ Vision-to-Language Compression to mitigate hallucinations caused by visual bias (Figure 1), alongside a Junior-Senior Agent Handoff mechanism that achieves a 5&times; cost reduction followed by post-hoc filtering to ensure fidelity. Derived from VGGSound and AudioSet via this pipeline, SoundAtlas exhibits tight V-A-T alignment, delivering semantically rich captions capable of correcting errors in human benchmarks.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Omni2Sound Model Section -->
+    <section class="content-section py-16 bg-white">
+        <div class="mx-auto px-8" style="max-width: 90rem;">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-12 text-slate-900">Omni2Sound: Unified VT2A Foundation Model with Unified SOTA Performance</h2>
+
+            <div class="space-y-8 mb-8">
+                <div class="flex justify-center">
+                    <img src="src/omnisound.png" alt="Omni2Sound model architecture" class="section-image clickable" onclick="openLightbox('src/omnisound.png')" style="width: 70%; max-width: 70%;">
+                </div>
+                <div>
+                    <p class="text-base md:text-lg text-slate-700 leading-relaxed">
+                        Building on SoundAtlas, we propose <strong>Omni2Sound</strong>, a diffusion-based unified model that supports flexible input modalities while maintaining both fine-grained audio-visual synchronization and high-fidelity generation. To address the identified cross-task and intra-task competition, we design a three-stage progressive training schedule that departs from naive joint training. This strategy first establishes a robust T2A prior and leverages high-quality VT2A data to map distinct conditional spaces into a unified joint embedding, effectively converting cross-task competition into a cooperative dynamic. Furthermore, it employs a decoupled robustness training stage with push-pull synergistic augmentations to mitigate intra-task modality bias, ensuring both A-V alignment and faithfulness in off-screen audio generation.
+                    </p>
+                    <p class="text-base md:text-lg text-slate-700 leading-relaxed">
+                        As a result, Omni2Sound achieves unified state-of-the-art performance across V2A, T2A, and VT2A tasks on the comprehensive VGGSound-Omni benchmark, surpassing both previous unified frameworks and specialized baselines. Extensive evaluations further demonstrate its strong generalization capabilities on external benchmarks (e.g., Kling-Audio-Eval, Video-LLaMA generated captions) .
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Divider before Results -->
+    <!-- <div class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-1"></div> -->
+
+    <!-- Results Header -->
+    <section class="py-12 bg-slate-900 text-white">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <h2 class="text-3xl md:text-5xl font-bold mb-4">Results</h2>
+            <p class="text-lg md:text-xl text-slate-300">Qualitative Demonstrations and Comparisons</p>
+        </div>
+    </section>
+
+     <!-- Section 1: SoundAtlas Dataset Samples -->
+    <section class="py-12">
+        <div class="mx-auto px-8" style="max-width: 90rem;">
+            <h2 class="text-3xl font-bold text-center mb-4">Audio Caption Quality Comparison</h2>
+            <p class="text-gray-600 text-center mb-8 max-w-4xl mx-auto leading-relaxed">
+                We introduce <strong>SoundAtlas</strong>, the first large-scale, human-expert-level audio caption dataset,
+                augmenting VGGSound and AudioSet with <em>semantically rich</em> and <em>temporally detailed</em> captions.
+                It features tight visual–audio–text (V–A–T) alignment and a markedly higher text-audio faithfulness than prior datasets.
+            </p>
+
+            <div id="dataset-container" class="space-y-6">
+                <!-- Dataset samples will be rendered here -->
+            </div>
+
+            <!-- Show More Button -->
+            <div id="show-more-container" class="text-center mt-8">
+                <button onclick="toggleDatasetSamples()" id="show-more-btn" class="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-full transition-all">
+                    <span id="show-more-text">Show More Samples</span>
+                    <svg id="show-more-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 2: Model Generation Results -->
+    <section class="py-12 bg-slate-50">
+        <div class="mx-auto px-8" style="max-width: 90rem;">
+            <h2 class="text-3xl font-bold text-center mb-4">Omni2Sound: Generation Quality</h2>
+            <p class="text-gray-600 text-center mb-8 max-w-4xl mx-auto leading-relaxed">
+                We propose <strong>Omni2Sound</strong>, a diffusion-based unified model supporting flexible input modalities
+                while maintaining both fine-grained audio-visual synchronization and high-fidelity generation.
+            </p>
+
+            <!-- Tab Navigation (Pills Style) -->
+            <div class="flex justify-center mb-8">
+                <div class="inline-flex bg-slate-100 rounded-full p-1 gap-1">
+                    <button onclick="switchTab('ood')" id="tab-ood" class="tab-pill px-6 py-2.5 rounded-full text-sm font-medium text-gray-600">
+                        OOD
+                    </button>
+                    <button onclick="switchTab('vt2a')" id="tab-vt2a" class="tab-pill active px-6 py-2.5 rounded-full text-sm font-medium">
+                        VT2A
+                    </button>
+                    <button onclick="switchTab('v2a')" id="tab-v2a" class="tab-pill px-6 py-2.5 rounded-full text-sm font-medium text-gray-600">
+                        V2A
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Content -->
+             <div id="ood-content" class="tab-content hidden" style="display: none;">
+                <p class="text-gray-500 text-center text-sm mb-6">
+                    <strong>Out-of-Distribution:</strong> Generation handling Out-of-Distribution Generative Videos.
+                </p>
+                <div id="ood-container" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- OOD samples will be rendered here -->
+                </div>
+            </div>
+
+            <div id="vt2a-content" class="tab-content">
+                <p class="text-gray-500 text-center text-sm mb-6">
+                    <strong>Video-Text-to-Audio:</strong> Joint conditioning on Video and Text for precise semantic control.
+                </p>
+                <div id="vt2a-container" class="space-y-8">
+                    <!-- VT2A samples will be rendered here -->
+                </div>
+                <div class="text-center mt-8">
+                    <button onclick="toggleVt2aSamples()" id="vt2a-show-more-btn" class="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-full transition-all">
+                        <span id="vt2a-show-more-text">Show More Samples</span>
+                        <svg id="vt2a-show-more-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div id="v2a-content" class="tab-content hidden" style="display: none;">
+                <p class="text-gray-500 text-center text-sm mb-6">
+                    <strong>Video-to-Audio:</strong> Generation using visual cues alone (No text input).
+                </p>
+                <div id="v2a-container" class="space-y-8">
+                    <!-- V2A samples will be rendered here -->
+                </div>
+                <div class="text-center mt-8">
+                    <button onclick="toggleV2aSamples()" id="v2a-show-more-btn" class="inline-flex items-center gap-2 px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-full transition-all">
+                        <span id="v2a-show-more-text">Show More Samples</span>
+                        <svg id="v2a-show-more-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+
+        </div>
+    </section>
+
+   
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8">
+        <div class="max-w-5xl mx-auto px-4 text-center">
+            <p class="text-sm">&copy; 2026 Omni2Sound. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="lightbox-modal" onclick="closeLightbox()">
+        <span class="lightbox-close">&times;</span>
+        <img id="lightbox-img" class="lightbox-content" src="" alt="">
+    </div>
+
+    <script>
+        // Lightbox functions
+        function openLightbox(imgSrc) {
+            const lightbox = document.getElementById('lightbox');
+            const lightboxImg = document.getElementById('lightbox-img');
+            lightboxImg.src = imgSrc;
+            lightbox.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            const lightbox = document.getElementById('lightbox');
+            lightbox.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            }
+        });
+    </script>
+
+    <script>
+        // Dataset samples (AudioCaps) - Show all captions with SoundAtlas at bottom
+        const datasetSamples = [
+            {"id": "tKTif-VYLZs", "mp4_wavs_rel": "AudioCaps/tKTif-VYLZs.mp4", "dict_cap": {"AudioSetCaps": "Amidst a bustling crowd, an experimental music score plays as a collective excitement builds. The air is filled with rhythmic hand claps and cheers, signaling enthusiasm and appreciation.", "Sound-VECaps": "A crowd applauds and cheers as the referee stands outside the cage, where two fighters prepare for combat, surrounded by a sea of spectators.", "Auto-ACD": "The sound of a bell rings as a crowd talks in the background, indicating a lively atmosphere of people clapping.", "Audiocaps (Human Expert)": "A crowd cheering with a bell sounding in the middle", "SoundAtlas (Ours)": "The excited roar of a crowd fills the arena, punctuated by a sharp, metallic ring of a bell, followed by enthusiastic applause and cheering."}},
+            {"id": "Srn4b1cLSZY", "mp4_wavs_rel": "AudioCaps/Srn4b1cLSZY.mp4", "dict_cap": {"AudioSetCaps": "An idling vehicle with a distinctive engine sound, reminiscent of a motorcycle, can be heard. The experimental music in the background adds an intriguing layer to this audio clip.", "Sound-VECaps": "A person is sitting on a motorcycle, revving its engine on a snowy surface, while the engine idles and then roars to life, surrounded by a plain background with a few objects in the distance.", "Auto-ACD": "A motorcycle engine idles and then revs up, creating a loud and powerful sound in an outdoor setting.", "Audiocaps (Human Expert)": "A motorcycle idles nearby, and then it revs and accelerates", "SoundAtlas (Ours)": "A motorcycle idles with a low, rumbling engine before a metallic click is heard, followed by two loud, powerful revs."}},
+            {"id": "0d-mPaguXrE_p", "mp4_wavs_rel": "AudioCaps/0d-mPaguXrE_p.mp4", "dict_cap": {"AudioSetCaps": "An electronic music track featuring the distinct sounds of a revving engine and a vehicle passing by.", "Sound-VECaps": "A car engine revs up and then idles, passing by industrial buildings, while streetlights illuminate the quiet evening or early morning scene.", "Auto-ACD": "The sound of a car engine revving up and down can be heard as a car passes by on the street.", "Audiocaps (Human Expert)": "A car revving its engine and getting closer than driving away", "SoundAtlas (Ours)": "A car's tires screech loudly on pavement, followed by the deep, rumbling sound of its engine starting."}},
+            {"id": "-DXq8b_yfTQ_p", "mp4_wavs_rel": "AudioCaps/-DXq8b_yfTQ_p.mp4", "dict_cap": {"AudioSetCaps": "Amidst the tranquil seascape, the soothing sound of waves crashing against the shore intermingles with the gentle wind's rustling and the rhythmic electronic beats of a distant synthesizer. The symphony of nature's elements creates a calming ambiance, invoking a sense of serenity and relaxation.", "Sound-VECaps": "A massive wave crashes onto a structure, accompanied by strong wind and ocean sounds, as a stormy weather condition unfolds, with wind noise and waves in the background.", "Auto-ACD": "The wind howls loudly as waves crash against the shore, creating a symphony of nature's fury by the ocean.", "Audiocaps (Human Expert)": "A man is talking near the sea, the sound is muffled because it is very windy", "SoundAtlas (Ours)": "Powerful waves crash and roar against a seawall, accompanied by strong wind gusts and a man's muffled voice speaking in a foreign language."}},
+            {"id": "7_667DAMkdg_p", "mp4_wavs_rel": "AudioCaps/7_667DAMkdg_p.mp4", "dict_cap": {"AudioSetCaps": "A series of bursts and pops are heard, likely originating from an external source. These sounds could be indicative of an event where fireworks are being used.", "Sound-VECaps": "As the night sky darkened, a burst of fireworks exploded, followed by a series of fireworks, while the background sounds of cheers and music filled the air.", "Auto-ACD": "Gunshots echo through the night as fireworks explode in the distance, creating a symphony of loud bangs and colorful flashes.", "Audiocaps (Human Expert)": "Wind is blowing and several short sharp bursts go off", "SoundAtlas (Ours)": "A firework crackles and fizzes, followed by a series of loud, sharp bangs and explosive booms echoing in the distance."}},
+            {"id": "-megk3LUqo4_p", "mp4_wavs_rel": "AudioCaps/-megk3LUqo4_p.mp4", "dict_cap": {"AudioSetCaps": "Audio clip features the soothing sounds of a babbling stream accompanied by lively chirping of birds. The peaceful ambiance is filled with the rhythmic splashes of water and melodic bird calls, creating an enchanting outdoor atmosphere.", "Sound-VECaps": "As the stream flows gently through the forested area, water splashes and gurgles over the rocks, while a toy car crosses the stream, and in the background, leaves rustle in the breeze.", "Auto-ACD": "A boat motor roars as water splashes and gurgles, while an adult male speaks in the background near a flowing stream.", "Audiocaps (Human Expert)": "A remote control car moving with a stream flowing in the background", "SoundAtlas (Ours)": "A remote-controlled car's engine whirs loudly as it splashes through water, then struggles with a high-pitched whine before the sound of its motor abruptly cuts out."}},
+            {"id": "XcBBHQOO0mc", "mp4_wavs_rel": "AudioCaps/XcBBHQOO0mc.mp4", "dict_cap": {"AudioSetCaps": "An idling vehicle engine is accompanied by the sound of an electronic horn. The ambient background music features a synthesizer playing an upbeat electronic melody.", "Sound-VECaps": "A bus is parked on the side of the road, with its door open, while a truck engine idles in the background, followed by a honking horn, and the sound of air brakes can be heard as pedestrians walk by, on a cloudy day.", "Auto-ACD": "The sound of an engine running nearby is followed by the sound of a vehicle passing by, indicating a driving buses environment.", "Audiocaps (Human Expert)": "Deep humming followed by a pneumatic hiss then a revving engine and squeaking", "SoundAtlas (Ours)": "A bus with a loud, rumbling engine idles and then accelerates away, punctuated by the sharp, high-pitched squeal of its air brakes."}},
+            {"id": "21_W2EEtG9c_p", "mp4_wavs_rel": "AudioCaps/21_W2EEtG9c_p.mp4", "dict_cap": {"AudioSetCaps": "Background noise features a mix of human voices and the distinctive barks of a domestic animal, contributing to a lively atmosphere.", "Sound-VECaps": "'People are talking and a dog is barking, followed by the sound of a man walking a dog on a leash, while another dog is in the background, and then a dog jumps and participates in an agility course, and then a dog focuses on something, and then a dog is walking on a leash with a man, and then people and dogs are present at an outdoor event.'", "Auto-ACD": "Dogs bark loudly while people converse in the background on a soccer field.", "Audiocaps (Human Expert)": "People are speaking, follow by a dog barking and someone yells", "SoundAtlas (Ours)": "A man's indistinct voice speaks over crowd murmurs, followed by a dog barking loudly and repeatedly. The man then shouts a short, sharp command."}},
+            {"id": "4g5UJW0t4uc_p", "mp4_wavs_rel": "AudioCaps/4g5UJW0t4uc_p.mp4", "dict_cap": {"AudioSetCaps": "A domestic animal, likely a cat, makes a distinctive meowing sound. In the background, an experimental music piece featuring human vocals creates an atmospheric backdrop.", "Sound-VECaps": "A man is sitting on a couch, while a cat is meowing and playing nearby, and then a warm sunlight streams in, casting a cozy atmosphere.", "Auto-ACD": "A man speaks while a cat meows in a domestic environment, possibly on a couch in a room.", "Audiocaps (Human Expert)": "A cat meowing, a man cries out in pain", "SoundAtlas (Ours)": "A cat meows softly, then a man exclaims in pain."}}
+        ];
+
+        // Caption display order (SoundAtlas at bottom)
+        const captionOrder = ['Audiocaps (Human Expert)', 'AudioSetCaps', 'Sound-VECaps', 'Auto-ACD', 'SoundAtlas (Ours)'];
+
+        // State for show more
+        let showAllDataset = false;
+        let showAllVt2a = false;
+        let showAllV2a = false;
+
+        // VT2A samples
+        const vt2aSamples = [
+        {"id": "1ib1pd6mHoE_000001", "mp4_wavs_rel": {"MMAudio": "VT2A/1ib1pd6mHoE_000001@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/1ib1pd6mHoE_000001@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/1ib1pd6mHoE_000001@@@AudioX.mp4", "Omni2Sound": "VT2A/1ib1pd6mHoE_000001@@@OmniSound.mp4"}, "cap": "Electronic beeps sound, followed by the loud, high-speed whirring of a blender."},    
+        {"id": "0CA5CPHRXDc_000000", "mp4_wavs_rel": {"MMAudio": "VT2A/0CA5CPHRXDc_000000@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/0CA5CPHRXDc_000000@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/0CA5CPHRXDc_000000@@@AudioX.mp4", "Omni2Sound": "VT2A/0CA5CPHRXDc_000000@@@OmniSound.mp4"}, "cap": "A mosquito buzzes over high-pitched, cartoonish gibberish. A sharp slap is heard, followed immediately by a loud, abrupt explosion."},
+        {"id": "0hOD_iIeePk_000030", "mp4_wavs_rel": {"MMAudio": "VT2A/0hOD_iIeePk_000030@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/0hOD_iIeePk_000030@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/0hOD_iIeePk_000030@@@AudioX.mp4", "Omni2Sound": "VT2A/0hOD_iIeePk_000030@@@OmniSound.mp4"}, "cap": "A faint radio voice is interrupted by the click of a key turning, followed by the car engine cranking to life and a series of electronic dashboard chimes."},
+        {"id": "0B7fwvTtvLM_000000", "mp4_wavs_rel": {"MMAudio": "VT2A/0B7fwvTtvLM_000000@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/0B7fwvTtvLM_000000@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/0B7fwvTtvLM_000000@@@AudioX.mp4", "Omni2Sound": "VT2A/0B7fwvTtvLM_000000@@@OmniSound.mp4"}, "cap": "A basketball is dribbled continuously, its sharp, rhythmic thuds echoing as it impacts a hard surface."},
+        {"id": "130v5XJl8G0_000070", "mp4_wavs_rel": {"MMAudio": "VT2A/130v5XJl8G0_000070@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/130v5XJl8G0_000070@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/130v5XJl8G0_000070@@@AudioX.mp4", "Omni2Sound": "VT2A/130v5XJl8G0_000070@@@OmniSound.mp4"}, "cap": "A child coughs, followed by a calm adult female voice. The child then begins to cry and wail loudly as the woman speaks again, interspersed with more coughing."},
+        {"id": "064Ilsz8Fzg_000051", "mp4_wavs_rel": {"MMAudio": "VT2A/064Ilsz8Fzg_000051@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/064Ilsz8Fzg_000051@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/064Ilsz8Fzg_000051@@@AudioX.mp4", "Omni2Sound": "VT2A/064Ilsz8Fzg_000051@@@OmniSound.mp4"}, "cap": "A man speaks, followed by a car engine cranking and struggling to start. It then ignites and runs with a low rumble as the man continues to speak over the engine's hum."},
+        {"id": "29ZWMYIEq3g_000141", "mp4_wavs_rel": {"MMAudio": "VT2A/29ZWMYIEq3g_000141@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/29ZWMYIEq3g_000141@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/29ZWMYIEq3g_000141@@@AudioX.mp4", "Omni2Sound": "VT2A/29ZWMYIEq3g_000141@@@OmniSound.mp4"}, "cap": "A man speaks in a friendly, instructional tone while the rhythmic, metallic scraping sound of a knife being sharpened is heard throughout."},
+        {"id": "007P6bFgRCU_000010", "mp4_wavs_rel": {"MMAudio": "VT2A/007P6bFgRCU_000010@@@MMAudio.mp4", "HunyuanVideo-Foley": "VT2A/007P6bFgRCU_000010@@@HuanyuanVideo-Foley.mp4", "AudioX": "VT2A/007P6bFgRCU_000010@@@AudioX.mp4", "Omni2Sound": "VT2A/007P6bFgRCU_000010@@@OmniSound.mp4"}, "cap": "A trumpet plays a bright, clear melody over a swinging jazz rhythm from a piano, walking bass, and ride cymbal, soon joined by a saxophone's counter-melody."}
+        ];
+
+        // V2A samples (different models: MMAudio, AudioX, Frieren, OmniSound)
+        const v2aSamples = [
+            {"id": "20Nlj7Cz4E0_000030", "mp4_wavs_rel": {"MMAudio": "V2A/20Nlj7Cz4E0_000030@@@MMAudio.mp4", "AudioX": "V2A/20Nlj7Cz4E0_000030@@@AudioX.mp4", "Frieren": "V2A/20Nlj7Cz4E0_000030@@@Frieren.mp4", "Omni2Sound": "V2A/20Nlj7Cz4E0_000030@@@OmniSound.mp4"}, "cap": "A young man speaks, followed by a high-pitched, nasal voice singing. A single hand clap is heard during the song, which concludes with a brief, high-pitched vocalization."},
+            {"id": "14XML4NbS38_000005", "mp4_wavs_rel": {"MMAudio": "V2A/14XML4NbS38_000005@@@MMAudio.mp4", "AudioX": "V2A/14XML4NbS38_000005@@@AudioX.mp4", "Frieren": "V2A/14XML4NbS38_000005@@@Frieren.mp4", "Omni2Sound": "V2A/14XML4NbS38_000005@@@OmniSound.mp4"}, "cap": "A rooster crows, followed by a man's calm English speech. He suddenly screams in panic amidst the rooster's frantic squawking, scuffling sounds, and background laughter."},
+            {"id": "12eRdXA6Iig_000077", "mp4_wavs_rel": {"MMAudio": "V2A/12eRdXA6Iig_000077@@@MMAudio.mp4", "AudioX": "V2A/12eRdXA6Iig_000077@@@AudioX.mp4", "Frieren": "V2A/12eRdXA6Iig_000077@@@Frieren.mp4", "Omni2Sound": "V2A/12eRdXA6Iig_000077@@@OmniSound.mp4"}, "cap": "An electric beard trimmer emits a steady, medium-pitched buzz before clicking off. After a brief pause, it buzzes on again."},
+            {"id": "1ib1pd6mHoE_000001", "mp4_wavs_rel": {"MMAudio": "V2A/1ib1pd6mHoE_000001@@@MMAudio.mp4", "AudioX": "V2A/1ib1pd6mHoE_000001@@@AudioX.mp4", "Frieren": "V2A/1ib1pd6mHoE_000001@@@Frieren.mp4", "Omni2Sound": "V2A/1ib1pd6mHoE_000001@@@OmniSound.mp4"}, "cap": "Electronic beeps sound, followed by the loud, high-speed whirring of a blender."},
+            {"id": "_1TjLs6_Geo_000013", "mp4_wavs_rel": {"MMAudio": "V2A/_1TjLs6_Geo_000013@@@MMAudio.mp4", "AudioX": "V2A/_1TjLs6_Geo_000013@@@AudioX.mp4", "Frieren": "V2A/_1TjLs6_Geo_000013@@@Frieren.mp4", "Omni2Sound": "V2A/_1TjLs6_Geo_000013@@@OmniSound.mp4"}, "cap": "A hand strikes a set of copper pipes, producing a simple, resonant melody of clear, high-pitched, metallic chimes."},
+            {"id": "26dqZUTv5os_000175", "mp4_wavs_rel": {"MMAudio": "V2A/26dqZUTv5os_000175@@@MMAudio.mp4", "AudioX": "V2A/26dqZUTv5os_000175@@@AudioX.mp4", "Frieren": "V2A/26dqZUTv5os_000175@@@Frieren.mp4", "Omni2Sound": "V2A/26dqZUTv5os_000175@@@OmniSound.mp4"}, "cap": "Sharp, metallic hammer strikes ring out in a steady, repetitive rhythm, echoing with a clear, resonant quality in a quiet environment."},
+            {"id": "0nYltlo90Zc_000147", "mp4_wavs_rel": {"MMAudio": "V2A/0nYltlo90Zc_000147@@@MMAudio.mp4", "AudioX": "V2A/0nYltlo90Zc_000147@@@AudioX.mp4", "Frieren": "V2A/0nYltlo90Zc_000147@@@Frieren.mp4", "Omni2Sound": "V2A/0nYltlo90Zc_000147@@@OmniSound.mp4"}, "cap": "A steady, rhythmic beat is played on conga drums, featuring a mix of sharp slaps and deep, resonant tones."},
+            {"id": "10aBef0Ghkc_000040", "mp4_wavs_rel": {"MMAudio": "V2A/10aBef0Ghkc_000040@@@MMAudio.mp4", "AudioX": "V2A/10aBef0Ghkc_000040@@@AudioX.mp4", "Frieren": "V2A/10aBef0Ghkc_000040@@@Frieren.mp4", "Omni2Sound": "V2A/10aBef0Ghkc_000040@@@OmniSound.mp4"}, "cap": "A piano plays a slow, serene melody, combining clear high-register notes with soft, resonant chords in the lower register."},
+        ];
+
+        // OOD samples
+        const oodSamples = [
+            {"cap": "The resounding gongs and drums accompany the singing in sync, and the actors' lip movements match the timbre of their voices.", "mp4_wavs_rel": "OOD_VT2A/The resounding gongs and drums accompany the singing in sync, and the actors' lip movements match the timbre of their voices..mp4"},
+{"cap": "The rhythm of the guitar accompaniment is steady, the chorus of several people is clear, and there is the crackling sound of the background flames.", "mp4_wavs_rel": "OOD_VT2A/The rhythm of the guitar accompaniment is steady, the chorus of several people is clear, and there is the crackling sound of the background flames..mp4"},
+{"cap": "A melodious female voice sings, accompanied by background music like wind chimes and the echoes of the forest.", "mp4_wavs_rel": "OOD_VT2A/A melodious female voice sings, accompanied by background music like wind chimes and the echoes of the forest..mp4"},
+{"cap": "The gentle wind rustles the corners of the clothes. There is a soothing melody of an acoustic guitar, in sync with the teenager's movements.", "mp4_wavs_rel": "OOD_VT2A/The gentle wind rustles the corners of the clothes. There is a soothing melody of an acoustic guitar, in sync with the teenager's movements..mp4"},
+{"cap": "The clinking sound of ice cubes is precisely synchronized with the hissing sound of bubbles.", "mp4_wavs_rel": "OOD_VT2A/The clinking sound of ice cubes is precisely synchronized with the hissing sound of bubbles..mp4"},
+{"cap": "The creaking sound gradually intensified, with the rhythm matching the movements.", "mp4_wavs_rel": "OOD_VT2A/The creaking sound gradually intensified, with the rhythm matching the movements..mp4"},
+{"cap": "The low chanting sound grew louder. The air rippled along with the hum of the surging magic, and the students let out exclamations.", "mp4_wavs_rel": "OOD_VT2A/The low chanting sound grew louder. The air rippled along with the hum of the surging magic, and the students let out exclamations..mp4"},
+{"cap": "The resounding chorus has reverb and the lip-sync is perfect; the echo in the church space is quite obvious.", "mp4_wavs_rel": "OOD_VT2A/The resounding chorus has reverb and the lip-sync is perfect; the echo in the church space is quite obvious..mp4"},
+{"cap": "The roaring thunder cracked from the zenith, the staff emitted crackling arcs of electricity, and the air echoed with low incantations.", "mp4_wavs_rel": "OOD_VT2A/The roaring thunder cracked from the zenith, the staff emitted crackling arcs of electricity, and the air echoed with low incantations..mp4"},
+
+        ];
+
+        // Toggle show more/less for dataset samples
+        function toggleDatasetSamples() {
+            showAllDataset = !showAllDataset;
+            renderDataset();
+
+            const text = document.getElementById('show-more-text');
+            const icon = document.getElementById('show-more-icon');
+
+            if (showAllDataset) {
+                text.textContent = 'Show Less';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                text.textContent = 'Show More Samples';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Toggle show more/less for VT2A samples
+        function toggleVt2aSamples() {
+            showAllVt2a = !showAllVt2a;
+            renderVt2a();
+
+            const text = document.getElementById('vt2a-show-more-text');
+            const icon = document.getElementById('vt2a-show-more-icon');
+
+            if (showAllVt2a) {
+                text.textContent = 'Show Less';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                text.textContent = 'Show More Samples';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Toggle show more/less for V2A samples
+        function toggleV2aSamples() {
+            showAllV2a = !showAllV2a;
+            renderV2a();
+
+            const text = document.getElementById('v2a-show-more-text');
+            const icon = document.getElementById('v2a-show-more-icon');
+
+            if (showAllV2a) {
+                text.textContent = 'Show Less';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                text.textContent = 'Show More Samples';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Render Dataset Section - Show ALL captions with SoundAtlas at bottom
+        function renderDataset() {
+            const container = document.getElementById('dataset-container');
+            const samplesToShow = showAllDataset ? datasetSamples : datasetSamples.slice(0, 3);
+
+            container.innerHTML = samplesToShow.map((sample, idx) => `
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="flex flex-col md:flex-row">
+                        <div class="md:w-1/3 p-4 bg-slate-50 flex items-center justify-center">
+                            <video controls class="w-full rounded-lg" preload="metadata" loading="lazy">
+                                <source src="${sample.mp4_wavs_rel}" type="video/mp4">
+                            </video>
+                        </div>
+                        <div class="md:w-2/3 p-4">
+                            <div class="space-y-0">
+                                ${captionOrder.map(key => {
+                                    const isOurs = key === 'SoundAtlas (Ours)';
+                                    const caption = sample.dict_cap[key];
+                                    if (!caption) return '';
+                                    return `
+                                        <div class="caption-row ${isOurs ? 'ours-highlight rounded px-2 mt-2 pt-2' : ''}">
+                                            <span class="text-xs font-semibold ${isOurs ? 'text-blue-600' : 'text-slate-500'}">${key}</span>
+                                            <p class="text-sm ${isOurs ? 'text-slate-800 font-medium' : 'text-slate-600'}">${caption}</p>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render VT2A/V2A Section
+        function renderGeneration(samples, containerId, showCaption, methods) {
+            const container = document.getElementById(containerId);
+
+            container.innerHTML = samples.map((sample, idx) => `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    ${showCaption ? `
+                        <div class="bg-blue-50 border-l-4 border-blue-400 px-4 py-3 rounded-r mb-5">
+                            <p class="text-xs text-blue-600 font-semibold mb-1 uppercase tracking-wide">Caption</p>
+                            <p class="text-sm text-slate-700 leading-relaxed">${sample.cap}</p>
+                        </div>
+                    ` : ''}
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        ${methods.map(method => `
+                            <div class="model-card ${method === 'Omni2Sound' ? 'ring-2 ring-blue-400 rounded-lg' : ''}">
+                                <p class="text-xs font-semibold mb-2 text-center ${method === 'Omni2Sound' ? 'text-blue-600' : 'text-slate-500'}">${method}${method === 'Omni2Sound' ? ' (Ours)' : ''}</p>
+                                <video controls class="w-full rounded-lg" preload="metadata" loading="lazy">
+                                    <source src="${sample.mp4_wavs_rel[method]}" type="video/mp4">
+                                </video>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render VT2A with show more logic
+        function renderVt2a() {
+            const samplesToShow = showAllVt2a ? vt2aSamples : vt2aSamples.slice(0, 3);
+            renderGeneration(samplesToShow, 'vt2a-container', true, ['MMAudio', 'HunyuanVideo-Foley', 'AudioX', 'Omni2Sound']);
+        }
+
+        // Render V2A with show more logic
+        function renderV2a() {
+            const samplesToShow = showAllV2a ? v2aSamples : v2aSamples.slice(0, 3);
+            renderGeneration(samplesToShow, 'v2a-container', false, ['MMAudio', 'AudioX', 'Frieren', 'Omni2Sound']);
+        }
+
+        // Render OOD Section
+        function renderOOD() {
+            const container = document.getElementById('ood-container');
+            container.innerHTML = oodSamples.map((sample, idx) => `
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-4">
+                    <video controls class="w-full rounded-lg mb-3" preload="metadata" loading="lazy">
+                        <source src="${sample.mp4_wavs_rel}" type="video/mp4">
+                    </video>
+                    <div class="bg-purple-50 border-l-3 border-purple-400 px-3 py-2 rounded">
+                        <p class="text-xs text-purple-600 font-medium mb-1">Text Prompt</p>
+                        <p class="text-sm text-slate-700">${sample.cap}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Tab switching
+        function switchTab(tab) {
+            // Hide all content
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+                el.style.display = 'none';
+            });
+            // Remove active state from all tabs
+            document.querySelectorAll('.tab-pill').forEach(el => {
+                el.classList.remove('active');
+                el.classList.add('text-gray-600');
+            });
+
+            // Show selected content and activate tab
+            document.getElementById(`${tab}-content`).classList.remove('hidden');
+            document.getElementById(`${tab}-content`).style.display = 'block';
+            document.getElementById(`tab-${tab}`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.remove('text-gray-600');
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDataset();
+            renderOOD();
+            renderVt2a();
+            renderV2a();
+            // Set default tab to OOD
+            switchTab('ood');
+        });
+    </script>
+</body>
+</html>
